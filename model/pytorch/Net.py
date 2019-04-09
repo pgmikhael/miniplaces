@@ -1,7 +1,13 @@
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-
+# from torchvision.datasets.folder import ImageFolder
+# from torch.utils.data import DataLoader
+# from torchvision.transforms import transforms
+from DataLoader import *
+import numpy as np
+import matplotlib.pyplot as plt
 """
 TODO:
     - load data
@@ -10,13 +16,56 @@ TODO:
     - compute accuracies: acc1_total /= num_batch; acc5_total /= num_batch
 """
 
-
 # Dataset Parameters
 batch_size = 200
 load_size = 256
 fine_size = 224
 c = 3
 data_mean = np.asarray([0.45834960097,0.44674252445,0.41352266842])
+
+# Load Data
+# def load_images(image_size=150, batch_size=64, root="../../data2/images"):
+
+    transform = transforms.Compose([
+                    transforms.RandomCrop(image_size),
+                    transforms.ToTensor(),
+                    transforms.Normalize(data_mean)
+    ])
+
+    train_set = ImageFolder(root=root, transform=transform)
+    train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=2)
+    return train_loader  
+# Construct dataloader
+opt_data_train = {
+    #'data_h5': 'miniplaces_256_train.h5',
+    'data_root': '../../data2/images/',   # MODIFY PATH ACCORDINGLY
+    'data_list': '../../data/train.txt', # MODIFY PATH ACCORDINGLY
+    'load_size': load_size,
+    'fine_size': fine_size,
+    'data_mean': data_mean,
+    'randomize': True
+    }
+opt_data_val = {
+    #'data_h5': 'miniplaces_256_val.h5',
+    'data_root': '../../data/images/',   # MODIFY PATH ACCORDINGLY
+    'data_list': '../../data/val.txt',   # MODIFY PATH ACCORDINGLY
+    'load_size': load_size,
+    'fine_size': fine_size,
+    'data_mean': data_mean,
+    'randomize': False
+    }
+
+loader_train = DataLoaderDisk(**opt_data_train)
+loader_val = DataLoaderDisk(**opt_data_val)
+
+# Transform data into tensors
+
+def imshow(img):
+    img = img
+    #npimg = img.numpy()
+    plt.imshow(np.transpose(img[0].numpy(), (1, 2, 0)))
+    plt.show()
+
 
 # Training Parameters
 learning_rate = 0.001
@@ -40,7 +89,7 @@ class Net(nn.Module):
         self.fc3 = nn.Linear(84, 10)
     """
     def __init__(self, num_classes=1000):
-        super(AlexNet, self).__init__()
+        super(Net, self).__init__()
         self.features = nn.Sequential(
             nn.Conv2d(3, 64, kernel_size=11, stride=4, padding=2),
             nn.ReLU(inplace=True),
@@ -78,35 +127,61 @@ criterion = nn.CrossEntropyLoss()                                           # de
 optimizer = optim.SGD(net.parameters(), lr=learning_rate, momentum=0.9)     # define optimization alg
 
 
-# Load Data
 
+# Train Data
+N_EPOCHS = 2
 
-
-# Train the network
-for epoch in range(2):  # loop over the dataset multiple times
-
-    running_loss = 0.0
-    for i, data in enumerate(trainloader, 0):
-        # get the inputs
-        inputs, labels = data
-
-        # zero the parameter gradients
-        optimizer.zero_grad()
-
-        # forward + backward + optimize
-        outputs = net(inputs)               # forward prop
-        loss = criterion(outputs, labels)   # compute loss
-        loss.backward()                     # back prop
-        optimizer.step()                    # update weights
-
-        # print statistics
-        running_loss += loss.item()
+for epoch in range(N_EPOCHS):                       # loop over the dataset multiple times
+    print(f"Epoch {epoch+1}/{N_EPOCHS}")
+    
+    # Train
+    net.train()  # IMPORTANT
+    
+    running_loss, correct = 0.0, 0
+    for X, y in train_dl:
+        
+        X, y = X.to(DEVICE), y.to(DEVICE)   # get the inputs
+        
+        optimizer.zero_grad()   # zero the parameter gradients
+        y_ = net(X)            # forward prop
+        loss = criterion(y_, y) # compute loss
+        loss.backward()         # back prop
+        optimizer.step()        # update weights
+        
+        # Statistics
+        print(f"    batch loss: {loss.item():0.3f}")
+        _, y_label_ = torch.max(y_, 1)
+        correct += (y_label_ == y).sum().item()
+        
+        running_loss += loss.item() * X.shape[0]
         if i % 2000 == 1999:    # print every 2000 mini-batches
             print('[%d, %5d] loss: %.3f' %
                   (epoch + 1, i + 1, running_loss / 2000))
-            running_loss = 0.0
+    print(f"  Train Loss: {running_loss / len(train_dl.dataset)}")
+    print(f"  Train Acc:  {correct / len(train_dl.dataset)}")
+    print('Finished Training')
+    
+    # Eval
+    model.eval()  # IMPORTANT
+    
+    running_loss, correct = 0.0, 0
+    with torch.no_grad():  # IMPORTANT
+        for X, y in val_dl:
+            X, y = X.to(DEVICE), y.to(DEVICE)
+                    
+            y_ = model(X)
+        
+            # Statistics
+            _, y_label_ = torch.max(y_, 1)
+            correct += (y_label_ == y).sum().item()
+            loss = criterion(y_, y)
+            running_loss += loss.item() * X.shape[0]
+    
+    print(f"  Valid Loss: {running_loss / len(val_dl.dataset)}")
+    print(f"  Valid Acc:  {correct / len(val_dl.dataset)}")
+    print()
 
-print('Finished Training')
+
 
 
 
