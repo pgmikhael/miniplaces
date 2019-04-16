@@ -180,7 +180,7 @@ with torch.no_grad():
     # Development Set
     Xval, yval = loader_val.next_batch(loader_val.size())
     # Xval, yval = Xval.to(DEVICE), yval.to(DEVICE)   # get the inputs
-    yval_ = net(Xval)
+    yval_ = net(Xval.float())
 
     # Statistics
     _, yval_label_ = torch.max(y_, 1)
