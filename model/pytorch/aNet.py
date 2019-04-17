@@ -163,9 +163,9 @@ np.savetxt('training-results.csv', results_training, delimiter=",")
 
 results_validation = np.zeros((training_iters, 4)) # save loss and accuracies for each iteration
 results_validation[:,0] = range(1,training_iters+1)
-results_validation[:,1] = iter_loss
-results_validation[:,2] = iter_acc1
-results_validation[:,3] = iter_acc5
+results_validation[:,1] = iter_loss_val
+results_validation[:,2] = iter_acc1_val
+results_validation[:,3] = iter_acc5_val
 np.savetxt('validation-results.csv', results_validation, delimiter=",")
 
 
@@ -183,17 +183,17 @@ with torch.no_grad():
     yval_ = net(Xval.float())
 
     # Statistics
-    _, yval_label_ = torch.max(y_, 1)
+    _, yval_label_ = torch.max(yval_, 1)
     _, yval_label_5 = torch.topk(yval_, 5, dim = 1, largest = True, sorted = True)
     
-    acc1_val = torch.sum((yval_label_ == yval.long()).float()).item()/batch_size
-    acc5_val = sum([yval.long()[i] in yval_label_5[i] for i in range(batch_size)])/batch_size
+    acc1_val = torch.sum((yval_label_ == yval.long()).float()).item()/loader_val.size()
+    acc5_val = sum([yval.long()[i] in yval_label_5[i] for i in range(loader_val.size())])/loader_val.size()
 
 
     
     # Test Set
     Xtest, testfilenames = loader_test.next_batch(loader_test.size())
-    ytest_ = net(Xtest)
+    ytest_ = net(Xtest.float())
     _, ytest_label_5 = torch.topk(ytest_, 5, dim = 1, largest = True, sorted = True)
     with open("test_results.txt","w") as testresults:
         for i in range(ytest_.shape[0]):
