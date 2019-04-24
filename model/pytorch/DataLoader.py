@@ -188,6 +188,7 @@ class TestLoaderDisk(object):
             images_batch[i, ...] = image
             
             self._idx += 1
+            flnames = self.filenames[self._idx-batch_size:self._idx]
             if self._idx == self.num:
                 self._idx = 0
         
@@ -195,7 +196,58 @@ class TestLoaderDisk(object):
         images_batch = torch.from_numpy(images_batch)
         images_batch = images_batch.view(batch_size, 3, self.load_size, self.load_size)
 
-        return images_batch.int(), self.filenames[self._idx-batch_size:self._idx]
+        return images_batch.int(), flnames
+        #to(torch.int64)
+    
+    def size(self):
+        return self.num
+
+    def reset(self):
+        self._idx = 0
+
+class ValLoaderDisk(object):
+    def __init__(self, **kwargs):
+
+        self.load_size = int(kwargs['load_size'])
+        self.randomize = kwargs['randomize']
+        self.data_root = os.path.join(kwargs['data_root']) #'../../data2/images/test'
+        for r, d, files in os.walk(self.data_root):  
+            self.filenames = files
+        self.filenames.sort()
+        # for each element in file name populate a tensor with that image in order
+        self.list_im = []
+        for file in self.filenames:
+            self.list_im.append(os.path.join(self.data_root, file))
+        self.list_im = np.array(self.list_im, np.object)
+
+        self.num = self.list_im.shape[0]
+        print('# Images found:', self.num)
+
+
+        #permutation
+        #perm = np.random.permutation(self.num) 
+        #self.list_im[:, ...] = self.list_im[perm, ...]
+        #self.list_lab[:] = self.list_lab[perm, ...]
+
+        self._idx = 0
+
+    def next_batch(self, batch_size):
+        images_batch = np.zeros((batch_size, self.load_size, self.load_size, 3)) 
+        for i in range(batch_size):
+            image = scipy.misc.imread(self.list_im[self._idx])
+            image = scipy.misc.imresize(image, (self.load_size, self.load_size))
+            images_batch[i, ...] = image
+            
+            self._idx += 1
+            flnames = self.filenames[self._idx-batch_size:self._idx]
+            if self._idx == self.num:
+                self._idx = 0
+        
+        # transform into pytorch tensors
+        images_batch = torch.from_numpy(images_batch)
+        images_batch = images_batch.view(batch_size, 3, self.load_size, self.load_size)
+
+        return images_batch.int(), flnames
         #to(torch.int64)
     
     def size(self):

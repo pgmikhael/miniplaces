@@ -26,15 +26,15 @@ data_mean = np.asarray([0.45834960097,0.44674252445,0.41352266842])
 # Load Data
 # def load_images(image_size=150, batch_size=64, root="../../data2/images"):
 
-    transform = transforms.Compose([
-                    transforms.RandomCrop(image_size),
-                    transforms.ToTensor(),
-                    transforms.Normalize(data_mean)
-    ])
+    # transform = transforms.Compose([
+    #                 transforms.RandomCrop(image_size),
+    #                 transforms.ToTensor(),
+    #                 transforms.Normalize(data_mean)
+    # ])
 
-    train_set = ImageFolder(root=root, transform=transform)
-    train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=2)
-    return train_loader  
+    # train_set = ImageFolder(root=root, transform=transform)
+    # train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=2)
+    # return train_loader  
 # Construct dataloader
 opt_data_train = {
     #'data_h5': 'miniplaces_256_train.h5',
@@ -60,12 +60,17 @@ loader_val = DataLoaderDisk(**opt_data_val)
 
 # Transform data into tensors
 
-def imshow(img):
-    img = img
-    #npimg = img.numpy()
-    plt.imshow(np.transpose(img[0].numpy(), (1, 2, 0)))
+def imshow(img, index):
+    img = img.view(img.size(0), img.size(2), img.size(2), 3)
+    plt.imshow(img[index])
     plt.show()
 
+x, y = loader_train.next_batch(5)
+imshow(x)
+
+z = torch.from_numpy(x)
+w = z.view(batch_size,3,128,128)
+# batch size, c, h, w
 
 # Training Parameters
 learning_rate = 0.001
@@ -138,47 +143,51 @@ for epoch in range(N_EPOCHS):                       # loop over the dataset mult
     net.train()  # IMPORTANT
     
     running_loss, correct = 0.0, 0
-    for X, y in train_dl:
+    
         
-        X, y = X.to(DEVICE), y.to(DEVICE)   # get the inputs
+    # X, y = X.to(DEVICE), y.to(DEVICE)   # get the inputs
+    X, y = loader_train.next_batch()
+    optimizer.zero_grad()   # zero the parameter gradients
+    y_ = net(X)            # forward prop
+    loss = criterion(y_, y) # compute loss
+    loss.backward()         # back prop
+    optimizer.step()        # update weights
         
-        optimizer.zero_grad()   # zero the parameter gradients
-        y_ = net(X)            # forward prop
-        loss = criterion(y_, y) # compute loss
-        loss.backward()         # back prop
-        optimizer.step()        # update weights
+    # Statistics
+    print(f"    batch loss: {loss.item():0.3f}")
+    _, y_label_ = torch.max(y_, 1)
+    # _, y_label5 = torch.max(y_, 5)
+    correct += (y_label_ == y).sum().item()
         
-        # Statistics
-        print(f"    batch loss: {loss.item():0.3f}")
-        _, y_label_ = torch.max(y_, 1)
-        correct += (y_label_ == y).sum().item()
-        
-        running_loss += loss.item() * X.shape[0]
-        if i % 2000 == 1999:    # print every 2000 mini-batches
-            print('[%d, %5d] loss: %.3f' %
-                  (epoch + 1, i + 1, running_loss / 2000))
-    print(f"  Train Loss: {running_loss / len(train_dl.dataset)}")
-    print(f"  Train Acc:  {correct / len(train_dl.dataset)}")
+    running_loss += loss.item() * X.shape[0]
+    if epoch % 2000 == 1999:    # print every 2000 mini-batches
+        print('[%d, %5d] loss: %.3f' %
+                  (epoch + 1, running_loss / 2000))
+    print(f"  Train Loss: {running_loss / len(y)}")
+    print(f"  Train Acc:  {correct / len(y)}")
     print('Finished Training')
     
-    # Eval
-    model.eval()  # IMPORTANT
+    
+    
+# Eval
+for epoch in range(N_EPOCHS): 
+    net.eval()  # IMPORTANT
     
     running_loss, correct = 0.0, 0
-    with torch.no_grad():  # IMPORTANT
-        for X, y in val_dl:
-            X, y = X.to(DEVICE), y.to(DEVICE)
-                    
-            y_ = model(X)
-        
-            # Statistics
-            _, y_label_ = torch.max(y_, 1)
-            correct += (y_label_ == y).sum().item()
-            loss = criterion(y_, y)
-            running_loss += loss.item() * X.shape[0]
     
-    print(f"  Valid Loss: {running_loss / len(val_dl.dataset)}")
-    print(f"  Valid Acc:  {correct / len(val_dl.dataset)}")
+    with torch.no_grad():  # IMPORTANT
+        X, y = loader_train.next_batch()
+        # X, y = X.to(DEVICE), y.to(DEVICE)
+                    
+        y_ = net(X)
+        
+        # Statistics
+        _, y_label_ = torch.max(y_, 1)
+        correct += (y_label_ == y).sum().item()
+        loss = criterion(y_, y)
+        running_loss += loss.item() * X.shape[0]
+    print(f"  Valid Loss: {running_loss / len(y)}")
+    print(f"  Valid Acc:  {correct / len(y)}")
     print()
 
 

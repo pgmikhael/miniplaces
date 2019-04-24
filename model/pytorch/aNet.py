@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 import matplotlib.pyplot as plt
-from DataLoader import DataLoaderDisk, TestLoaderDisk
+from DataLoader import DataLoaderDisk, TestLoaderDisk, ValLoaderDisk
 
 
 DEVICE = torch.device("cuda")
@@ -40,6 +40,13 @@ opt_data_val = {
 
 opt_data_test = {
     'data_root': '../../data2/images/test',   # MODIFY PATH ACCORDINGLY
+    'load_size': load_size,
+    'randomize': False
+    }
+
+opt_data_eval = {
+    #'data_h5': 'miniplaces_256_val.h5',
+    'data_root': '../../data2/images/val',   # MODIFY PATH ACCORDINGLY
     'load_size': load_size,
     'randomize': False
     }
@@ -91,11 +98,12 @@ net = Net()
 net = net.to(DEVICE)
 criterion = nn.CrossEntropyLoss()                                           # define loss
 optimizer = optim.SGD(net.parameters(), lr=learning_rate, momentum=0.9)     # define optimization alg
+#optimizer = optim.Adam(net.parameters(), lr=learning_rate)        # define optimization alg
 
 
 # Train Data
-training_iters = 100
-step_display = 10 - 1
+training_iters = 10000
+step_display = 100
 
 running_loss, acc1_val, acc5_val = 0.0, 0, 0
 iter_loss = []
@@ -110,7 +118,7 @@ iter_acc5_val = []
 for epoch in range(training_iters):  
     net.train()                        # set training mode 
     X, y = loader_train.next_batch(batch_size)
-    # X, y = X.to(DEVICE), y.to(DEVICE)   # get the inputs
+    X, y = X.to(DEVICE), y.to(DEVICE)   # get the inputs
     optimizer.zero_grad()   # zero the parameter gradients
     y_ = net(X.float())            # forward prop
     loss = criterion(y_, y.long()) # compute loss
@@ -130,7 +138,7 @@ for epoch in range(training_iters):
     net.eval()
     with torch.no_grad():
         Xval, yval = loader_val.next_batch(batch_size)
-        # Xval, yval = Xval.to(DEVICE), yval.to(DEVICE)   # get the inputs
+        Xval, yval = Xval.to(DEVICE), yval.to(DEVICE)   # get the inputs
         yval_ = net(Xval.float())
 
         # Statistics
@@ -147,7 +155,7 @@ for epoch in range(training_iters):
         iter_acc5_val.append(acc5_val)
 
     if (epoch+1) % step_display == 0:    # print every 2000 iterations
-    	print("-Iter " + str(epoch+1) + ": Training Loss= " + \
+        print("-Iter " + str(epoch+1) + ": Training Loss= " + \
                   "{:.4f}".format(running_loss) + ", Accuracy Top1 = " + \
                   "{:.2f}".format(acc1) + ", Top5 = " + \
                   "{:.2f}".format(acc5))
@@ -169,37 +177,33 @@ results_validation[:,3] = iter_acc5_val
 np.savetxt('validation-results.csv', results_validation, delimiter=",")
 
 
-
-# Model Evaluation
-
-loader_val = DataLoaderDisk(**opt_data_val)
+# Test Set
 loader_test = TestLoaderDisk(**opt_data_test)
+loader_valeval = ValLoaderDisk(**opt_data_eval)
 
 net.eval()
 with torch.no_grad():
-    # Development Set
-    Xval, yval = loader_val.next_batch(loader_val.size())
-    # Xval, yval = Xval.to(DEVICE), yval.to(DEVICE)   # get the inputs
-    yval_ = net(Xval.float())
+    for b in range(1,loader_test.size()//batch_size+1):
+        Xval, valfilenames = loader_valeval.next_batch(batch_size)
+        Xtest, testfilenames = loader_test.next_batch(batch_size)
+        
+        print(testfilenames[0])
+        
+        Xval = Xval.to(DEVICE)
+        Xtest = Xtest.to(DEVICE)
+        
+        yval_ = net(Xval.float())
+        ytest_ = net(Xtest.float())
+        
+        _, yval_label_5 = torch.topk(yval_, 5, dim = 1, largest = True, sorted = True)
+        _, ytest_label_5 = torch.topk(ytest_, 5, dim = 1, largest = True, sorted = True)
+        
+        with open("test_results.txt","a") as testresults:
+            for i in range(ytest_.shape[0]):
+                testresults.write("test/"+testfilenames[i]+" "+ str( ytest_label_5[i,:].tolist() ).strip('[]').replace(',', "")+"\n" )
+        with open("val_results.txt","a") as valresults:
+            for i in range(ytest_.shape[0]):
+                valresults.write("val/"+valfilenames[i]+" "+ str( yval_label_5[i,:].tolist() ).strip('[]').replace(',', "")+"\n" )
 
-    # Statistics
-    _, yval_label_ = torch.max(yval_, 1)
-    _, yval_label_5 = torch.topk(yval_, 5, dim = 1, largest = True, sorted = True)
-    
-    acc1_val = torch.sum((yval_label_ == yval.long()).float()).item()/loader_val.size()
-    acc5_val = sum([yval.long()[i] in yval_label_5[i] for i in range(loader_val.size())])/loader_val.size()
-
-
-    
-    # Test Set
-    Xtest, testfilenames = loader_test.next_batch(loader_test.size())
-    ytest_ = net(Xtest.float())
-    _, ytest_label_5 = torch.topk(ytest_, 5, dim = 1, largest = True, sorted = True)
-    with open("test_results.txt","w") as testresults:
-        for i in range(ytest_.shape[0]):
-            testresults.write("test/"+testfilenames[i]+" "+ str( ytest_label_5[i,:].tolist() ).strip('[]').replace(',', "")+"\n" )
-
-
-
-
+print('Finished Validation & Test')
 
