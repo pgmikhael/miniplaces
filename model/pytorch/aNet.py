@@ -19,7 +19,7 @@ data_mean = np.asarray([0.45834960097,0.44674252445,0.41352266842])
 learning_rate = 0.001
 dropout = 0.5 # Dropout, probability to keep units
 
-
+# dict for training data
 opt_data_train = {
     #'data_h5': 'miniplaces_256_train.h5',
     'data_root': '../../data2/images/',   # MODIFY PATH ACCORDINGLY
@@ -29,6 +29,7 @@ opt_data_train = {
     'randomize': True
     }
 
+# dict for validation data
 opt_data_val = {
     #'data_h5': 'miniplaces_256_val.h5',
     'data_root': '../../data2/images/',   # MODIFY PATH ACCORDINGLY
@@ -38,12 +39,14 @@ opt_data_val = {
     'randomize': False
     }
 
+# dict for test data
 opt_data_test = {
     'data_root': '../../data2/images/test',   # MODIFY PATH ACCORDINGLY
     'load_size': load_size,
     'randomize': False
     }
 
+# dict for validation data, for evaluation of entire dataset
 opt_data_eval = {
     #'data_h5': 'miniplaces_256_val.h5',
     'data_root': '../../data2/images/val',   # MODIFY PATH ACCORDINGLY
@@ -54,7 +57,7 @@ opt_data_eval = {
 
 
 
-
+# CNN module
 class Net(nn.Module):
     def __init__(self, num_classes=100):
         super(Net, self).__init__()
@@ -90,19 +93,19 @@ class Net(nn.Module):
         return x
 
 
-# load data
+# load train and val data
 loader_train = DataLoaderDisk(**opt_data_train)
 loader_val = DataLoaderDisk(**opt_data_val)
 
 net = Net()
 net = net.to(DEVICE)
-criterion = nn.CrossEntropyLoss()                                           # define loss
-optimizer = optim.SGD(net.parameters(), lr=learning_rate, momentum=0.9)     # define optimization alg
-#optimizer = optim.Adam(net.parameters(), lr=learning_rate)        # define optimization alg
+criterion = nn.CrossEntropyLoss()                                           # loss
+optimizer = optim.SGD(net.parameters(), lr=learning_rate, momentum=0.9)     # optimization alg
+#optimizer = optim.Adam(net.parameters(), lr=learning_rate)                 # maybe consider Adam or RMSProp
 
 
 # Train Data
-training_iters = 10000
+training_iters = 10000      # iteration steps, decreased from 100,000
 step_display = 100
 
 running_loss, acc1_val, acc5_val = 0.0, 0, 0
@@ -116,29 +119,29 @@ iter_acc1_val = []
 iter_acc5_val = []
 
 for epoch in range(training_iters):  
-    net.train()                        # set training mode 
-    X, y = loader_train.next_batch(batch_size)
-    X, y = X.to(DEVICE), y.to(DEVICE)   # get the inputs
-    optimizer.zero_grad()   # zero the parameter gradients
-    y_ = net(X.float())            # forward prop
-    loss = criterion(y_, y.long()) # compute loss
-    loss.backward()         # back prop
-    optimizer.step()        # update weights
+    net.train()                                 # set training mode 
+    X, y = loader_train.next_batch(batch_size)  # get the inputs
+    X, y = X.to(DEVICE), y.to(DEVICE)   
+    optimizer.zero_grad()                       # zero the parameter gradients
+    y_ = net(X.float())                         # forward prop
+    loss = criterion(y_, y.long())              # compute loss
+    loss.backward()                             # back prop
+    optimizer.step()                            # update weights
         
-    _, y_label_ = torch.max(y_, 1)
-    _, y_label_5 = torch.topk(y_, 5, dim = 1, largest = True, sorted = True)
-    acc1 = torch.sum((y_label_ == y.long()).float()).item()/batch_size
-    acc5 = sum([y.long()[i] in y_label_5[i] for i in range(batch_size)])/batch_size
-    running_loss = loss.item() 
+    _, y_label_ = torch.max(y_, 1)                                              # single prediction
+    _, y_label_5 = torch.topk(y_, 5, dim = 1, largest = True, sorted = True)    # top 5 predictions 
+    acc1 = torch.sum((y_label_ == y.long()).float()).item()/batch_size          # accuracy of single prediction
+    acc5 = sum([y.long()[i] in y_label_5[i] for i in range(batch_size)])/batch_size # accuracy of top 5 preds
+    running_loss = loss.item()                                                  # store loss
     
     iter_loss.append(running_loss)
     iter_acc1.append(acc1)
     iter_acc5.append(acc5)
 
-    net.eval()
-    with torch.no_grad():
+    net.eval()                                      # evaluation mode, store performance on validation set
+    with torch.no_grad():                                           
         Xval, yval = loader_val.next_batch(batch_size)
-        Xval, yval = Xval.to(DEVICE), yval.to(DEVICE)   # get the inputs
+        Xval, yval = Xval.to(DEVICE), yval.to(DEVICE)   
         yval_ = net(Xval.float())
 
         # Statistics
@@ -154,7 +157,7 @@ for epoch in range(training_iters):
         iter_acc1_val.append(acc1_val)
         iter_acc5_val.append(acc5_val)
 
-    if (epoch+1) % step_display == 0:    # print every 2000 iterations
+    if (epoch+1) % step_display == 0:    # print every 1000 iterations
         print("-Iter " + str(epoch+1) + ": Training Loss= " + \
                   "{:.4f}".format(running_loss) + ", Accuracy Top1 = " + \
                   "{:.2f}".format(acc1) + ", Top5 = " + \
@@ -166,7 +169,7 @@ results_training[:,0] = range(1,training_iters+1)
 results_training[:,1] = iter_loss
 results_training[:,2] = iter_acc1
 results_training[:,3] = iter_acc5
-np.savetxt('training-results.csv', results_training, delimiter=",")
+np.savetxt('training-metrics.csv', results_training, delimiter=",")
 
 
 results_validation = np.zeros((training_iters, 4)) # save loss and accuracies for each iteration
@@ -174,10 +177,10 @@ results_validation[:,0] = range(1,training_iters+1)
 results_validation[:,1] = iter_loss_val
 results_validation[:,2] = iter_acc1_val
 results_validation[:,3] = iter_acc5_val
-np.savetxt('validation-results.csv', results_validation, delimiter=",")
+np.savetxt('validation-metrics.csv', results_validation, delimiter=",")
 
 
-# Test Set
+# Performance on entire validation and test Sets
 loader_test = TestLoaderDisk(**opt_data_test)
 loader_valeval = ValLoaderDisk(**opt_data_eval)
 
