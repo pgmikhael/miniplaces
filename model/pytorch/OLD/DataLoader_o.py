@@ -3,15 +3,7 @@ import numpy as np
 import scipy.misc
 import h5py
 import torch
-from PIL import Image
-from torchvision import transforms
-
 np.random.seed(123)
-
-
-# transforms
-
-
 
 # loading data from .h5
 class DataLoaderH5(object):
@@ -82,9 +74,8 @@ class DataLoaderDisk(object):
 
         self.load_size = int(kwargs['load_size'])
         # self.fine_size = int(kwargs['fine_size'])
-        self.data_mean = kwargs['data_mean']
-        self.data_sd = kwargs['data_sd']
-        self.transform = kwargs['transform']
+        # self.data_mean = np.array(kwargs['data_mean'])
+        self.randomize = kwargs['randomize']
         self.data_root = os.path.join(kwargs['data_root'])
 
         # read data info from lists
@@ -96,8 +87,7 @@ class DataLoaderDisk(object):
                 self.list_im.append(os.path.join(self.data_root, path))
                 self.list_lab.append(int(lab))
         self.list_im = np.array(self.list_im, np.object)
-        # self.list_lab = np.array(self.list_lab, np.int64)
-        self.list_lab = torch.LongTensor(self.list_lab)
+        self.list_lab = np.array(self.list_lab, np.int64)
         self.num = self.list_im.shape[0]
         print('# Images found:', self.num)
 
@@ -109,42 +99,13 @@ class DataLoaderDisk(object):
         self._idx = 0
         
     def next_batch(self, batch_size):
-        images_batch = torch.zeros([batch_size, 3, self.load_size, self.load_size]) 
-        labels_batch = torch.zeros(batch_size,  dtype=torch.long)
+        images_batch = np.zeros((batch_size, self.load_size, self.load_size, 3)) 
+        labels_batch = np.zeros(batch_size)
         for i in range(batch_size):
-            image = Image.open(self.list_im[self._idx])
-            # image = scipy.misc.imread(self.list_im[self._idx])
-            # image = scipy.misc.imresize(image, (self.load_size, self.load_size))
+            image = scipy.misc.imread(self.list_im[self._idx])
+            image = scipy.misc.imresize(image, (self.load_size, self.load_size))
             # image = image.astype(np.float32)/255.
             # image = image - self.data_mean
-
-
-            # transform into PIL image
-            data_transform = transforms.Compose([
-                # transforms.RandomResizedCrop(self.load_size),
-                transforms.Resize(self.load_size),
-                transforms.RandomHorizontalFlip(),
-                transforms.ToTensor(),
-                transforms.Normalize(
-                        mean=self.data_mean,
-                        std=self.data_sd)
-                ])
-            
-            no_transform = transforms.Compose([
-                    transforms.Resize(self.load_size),
-                    transforms.ToTensor(),
-                    transforms.Normalize(
-                        mean=self.data_mean,
-                        std=self.data_sd)])
-
-            if self.transform:
-                tsfm = np.random.random_integers(0, 1)
-                if tsfm > 0:
-
-                    images_batch[i, ...] = data_transform(image)
-                else:
-                    images_batch[i, ...] = no_transform(image)
-
             # if self.randomize:
             #     flip = np.random.random_integers(0, 1)
             #     if flip>0:
@@ -157,23 +118,20 @@ class DataLoaderDisk(object):
 
             # images_batch[i, ...] =  image[offset_h:offset_h+self.fine_size, offset_w:offset_w+self.fine_size, :]
             # labels_batch[i, ...] = self.list_lab[self._idx]
-            # images_batch[i, ...] = image
-            
+            images_batch[i, ...] = image
+
             labels_batch[i, ...] = self.list_lab[self._idx]
             
             self._idx += 1
             if self._idx == self.num:
                 self._idx = 0
-    
-
-
-
+        
         # transform into pytorch tensors
-        # images_batch = torch.from_numpy(images_batch)
-        # images_batch = images_batch.view(batch_size, 3, self.load_size, self.load_size)
-        # labels_batch = torch.from_numpy(labels_batch)
+        images_batch = torch.from_numpy(images_batch)
+        images_batch = images_batch.view(batch_size, 3, self.load_size, self.load_size)
+        labels_batch = torch.from_numpy(labels_batch)
 
-        return images_batch, labels_batch
+        return images_batch.int(), labels_batch.float()
         #to(torch.int64)
     
     def size(self):

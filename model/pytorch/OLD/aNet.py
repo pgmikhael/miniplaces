@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 import matplotlib.pyplot as plt
-from DataLoader import DataLoaderDisk, TestLoaderDisk, ValLoaderDisk
+from DataLoader_o import DataLoaderDisk, TestLoaderDisk, ValLoaderDisk
 
 
 DEVICE = torch.device("cuda")
@@ -12,7 +12,8 @@ DEVICE = torch.device("cuda")
 batch_size = 200
 load_size = 256
 c = 3
-data_mean = np.asarray([0.45834960097,0.44674252445,0.41352266842])
+# data_mean = np.asarray([0.45834960097,0.44674252445,0.41352266842])
+data_mean = [0.45834960097,0.44674252445,0.41352266842]
 
 
 # Training Parameters
@@ -25,7 +26,7 @@ opt_data_train = {
     'data_root': '../../data2/images/',   # MODIFY PATH ACCORDINGLY
     'data_list': '../../data/train.txt', # MODIFY PATH ACCORDINGLY
     'load_size': load_size,
-    # 'data_mean': data_mean,
+    'data_mean': data_mean,
     'randomize': True
     }
 
