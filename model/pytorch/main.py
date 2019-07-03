@@ -5,7 +5,7 @@ import parsing as parsing
 import numpy as np
 import matplotlib.pyplot as plt
 from DataLoader import DataLoaderDisk, TestLoaderDisk, ValLoaderDisk
-from setup import name_models, train_model, name_models_process
+from setup import name_models_process, train_model
 
 args = parsing.parse_args()
 
@@ -56,22 +56,18 @@ opt_data_test = {
 
 
 
-
-# train models sequentially
-models = name_models(args)
-num_epochs = args.epochs
-batch_size = args.batch_size
-criterion = args.criterion
-
-for i in len(models):
-	model_name = models[i][0]
-	learning_rate = models[i][1]
-	optimizer = models[i][2]
-
-	train_model(model_name, criterion, optimizer, num_epochs, batch_size, learning_rate, opt_data_train, opt_data_val, opt_data_eval)
+#--------------------------------------------#
+# 			train models sequentially		 #
+#--------------------------------------------#
+# models = name_models_process(args)
+#
+# for i in range(len(models)):
+# 	train_model(*models[i])
 
 
-# OR train models in parallel
+#--------------------------------------------#
+# 		OR train models in parallel			 #
+#--------------------------------------------#
 _, models = name_models_process(args, opt_data_train, opt_data_val, opt_data_eval)
 
 processes = []

@@ -23,17 +23,17 @@ def name_models_process(args, *vars):
 
 	return models, combs_of_hyperparams
 
-def name_models(args):
-	# n_models = num_models(args)
+# def name_models(args):
+# 	# n_models = num_models(args)
 
-	models = {} 
-	lst_of_hyperparams = [args.models, args.lrs, args.optimizer]
-	combs_of_hyperparams = list(itertools.product(*lst_of_hyperparams))
+# 	models = {} 
+# 	lst_of_hyperparams = [args.models, args.lrs, args.optimizer]
+# 	combs_of_hyperparams = list(itertools.product(*lst_of_hyperparams))
 
-	for i in len(combs_of_hyperparams):
-		models['model'+str(i)] = combs_of_hyperparams[i]
+# 	for i in len(combs_of_hyperparams):
+# 		models['model'+str(i)] = combs_of_hyperparams[i]
 
-	return models
+# 	return models
 
 def train_model(model_name, criterion, optimizer, num_epochs, batch_size, learning_rate, opt_data_train, opt_data_val, opt_data_eval):
 
